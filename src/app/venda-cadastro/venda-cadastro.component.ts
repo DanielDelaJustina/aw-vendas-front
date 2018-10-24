@@ -1,5 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { VendasService } from '../vendas/vendas.service';
+import { FormGroup } from '@angular/forms';
+
+import { MessageService } from 'primeng/components/common/messageservice';
 
 @Component({
   selector: 'app-venda-cadastro',
@@ -8,12 +11,14 @@ import { VendasService } from '../vendas/vendas.service';
 })
 export class VendaCadastroComponent implements OnInit {
 
-  venda = { itens: [] };
-  item: any = {};
+  venda: any;
+  item: any;
   clientes: Array<any>;
   produtos: Array<any>;
+  @Output() vendaSalva = new EventEmitter;
 
-  constructor(private vendasService: VendasService) { }
+  constructor(private vendasService: VendasService,
+              private messageService: MessageService ) { }
 
   ngOnInit() {
     this.vendasService.listarClientes()
@@ -21,12 +26,37 @@ export class VendaCadastroComponent implements OnInit {
 
     this.vendasService.listarProdutos()
     .subscribe(response => this.produtos = response);
+
+    this.novaVenda();
   }
 
-  incluirItens() {
-    this.item.total = this.item.produto.valor * this.item.quantidade;
-    this.venda.itens.push(this.item);
+  novaVenda() {
+    this.venda = { itens: [], frete: 0.0, total: 0.0 };
     this.item = {};
   }
 
+  incluirItem() {
+    this.item.total = this.item.produto.valor * this.item.quantidade;
+    this.venda.itens.push(this.item);
+    this.item = {};
+
+    this.calcularTotal();
+  }
+
+  calcularTotal() {
+    const totalItens = this.venda.itens
+                       .map(i => (i.produto.valor * i.quantidade))
+                       .reduce((total, v) => total + v, 0);
+
+    this.venda.total = totalItens + this.venda.frete;
+  }
+
+  adicionar(frm: FormGroup) {
+    this.vendasService.adicionar(this.venda).subscribe(response => {
+      frm.reset();
+      this.novaVenda();
+      this.messageService.add({severity: 'success', detail: 'Venda adicionada com sucesso!' });
+      this.vendaSalva.emit(response);
+    });
+  }
 }
